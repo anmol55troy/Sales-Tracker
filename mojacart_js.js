@@ -2,6 +2,96 @@
 let sales = JSON.parse(localStorage.getItem('mojacart_sales')) || [];
 let charts = {};
 
+// Product price map (unit prices)
+const productPrices = {
+  'printed': 170,
+  'printed socks': 170,
+  'girly': 120,
+  'girl': 120,
+  'formal': 140,
+  'cactus jack': 150,
+  'nike long': 140,
+  'nike ankle': 120,
+  'nike anke': 120,
+  'nike half': 140,
+  'trekking': 200,
+  'emoji': 140
+};
+
+// Helper: get unit price by product name (case-insensitive)
+function getUnitPrice(productName) {
+  if (!productName) return null;
+  const key = productName.trim().toLowerCase();
+  return productPrices.hasOwnProperty(key) ? productPrices[key] : null;
+}
+
+// Update total for add form
+function updateAddFormTotal() {
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const qty = parseInt(document.getElementById('quantity').value) || 1;
+  const total = amount * qty;
+  document.getElementById('total').value = total.toFixed(2);
+}
+
+// When product selected in add form, set unit price (amount) if we know it, then update total
+function updateAddFormPriceFromProduct() {
+  const prod = document.getElementById('product').value;
+  const unit = getUnitPrice(prod);
+  if (unit !== null) {
+    document.getElementById('amount').value = unit.toFixed(2);
+  }
+  updateAddFormTotal();
+}
+
+// Update total for edit modal
+function updateEditFormTotal() {
+  const amount = parseFloat(document.getElementById('edit-amount').value) || 0;
+  const qty = parseInt(document.getElementById('edit-quantity').value) || 1;
+  const total = amount * qty;
+  document.getElementById('edit-total').value = total.toFixed(2);
+}
+
+// When product selected in edit modal, set unit price (edit-amount) if known, then update edit total
+function updateEditFormPriceFromProduct() {
+  const prod = document.getElementById('edit-product').value;
+  const unit = getUnitPrice(prod);
+  if (unit !== null) {
+    document.getElementById('edit-amount').value = unit.toFixed(2);
+  }
+  updateEditFormTotal();
+}
+
+// Attach listeners (ensure elements exist)
+document.addEventListener('DOMContentLoaded', function() {
+  // Set today's date as default
+  document.getElementById('sale-date').value = new Date().toISOString().split('T')[0];
+
+  // Attach add-form listeners
+  const productInput = document.getElementById('product');
+  const qtyInput = document.getElementById('quantity');
+  const amountInput = document.getElementById('amount');
+  if (productInput) productInput.addEventListener('input', updateAddFormPriceFromProduct);
+  if (qtyInput) qtyInput.addEventListener('input', updateAddFormTotal);
+  if (amountInput) amountInput.addEventListener('input', updateAddFormTotal);
+
+  // Attach edit-modal listeners
+  const editProduct = document.getElementById('edit-product');
+  const editQty = document.getElementById('edit-quantity');
+  const editAmount = document.getElementById('edit-amount');
+  if (editProduct) editProduct.addEventListener('input', updateEditFormPriceFromProduct);
+  if (editQty) editQty.addEventListener('input', updateEditFormTotal);
+  if (editAmount) editAmount.addEventListener('input', updateEditFormTotal);
+
+  // Initialize dashboard/lists/charts
+  updateDashboard();
+  renderSalesList();
+  initializeCharts();
+
+  // initialize totals on load
+  updateAddFormTotal();
+  updateEditFormTotal();
+});
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
   // Set today's date as default
@@ -40,6 +130,7 @@ document.getElementById('sale-form').addEventListener('submit', function(e) {
     id: Date.now(),
     product: document.getElementById('product').value.trim(),
     amount: parseFloat(document.getElementById('amount').value),
+    quantity: parseInt(document.getElementById('quantity').value) || 1,
     client: document.getElementById('client').value.trim(),
     date: document.getElementById('sale-date').value,
     payment: document.getElementById('payment').value,
@@ -49,7 +140,7 @@ document.getElementById('sale-form').addEventListener('submit', function(e) {
   };
 
   // Validation
-  if (!sale.product || sale.amount <= 0) {
+  if (!sale.product || sale.amount <= 0 || sale.quantity <= 0) {
     showToast('Please fill in all required fields correctly.', 'error');
     return;
   }
@@ -59,8 +150,11 @@ document.getElementById('sale-form').addEventListener('submit', function(e) {
   
   // Reset form
   this.reset();
+  // reset defaults
   document.getElementById('sale-date').value = new Date().toISOString().split('T')[0];
-  
+  document.getElementById('quantity').value = 1;
+  document.getElementById('amount').value = '';
+  document.getElementById('total').value = '0.00';
   // Update dashboard and lists
   updateDashboard();
   renderSalesList();
@@ -76,10 +170,10 @@ document.getElementById('sale-form').addEventListener('submit', function(e) {
 // Update dashboard statistics
 function updateDashboard() {
   const totalSales = sales.length;
-  const totalRevenue = sales.reduce((sum, sale) => sum + sale.amount, 0);
+  const totalRevenue = sales.reduce((sum, sale) => sum + ((sale.amount || 0) * (sale.quantity || 1)), 0);
   const today = new Date().toISOString().split('T')[0];
   const todaysSales = sales.filter(sale => sale.date === today);
-  const todaysRevenue = todaysSales.reduce((sum, sale) => sum + sale.amount, 0);
+  const todaysRevenue = todaysSales.reduce((sum, sale) => sum + ((sale.amount || 0) * (sale.quantity || 1)), 0);
   const avgSale = totalSales > 0 ? totalRevenue / totalSales : 0;
 
   document.getElementById('total-sales-count').textContent = totalSales;
@@ -87,22 +181,25 @@ function updateDashboard() {
   document.getElementById('today-revenue').textContent = todaysRevenue.toFixed(2);
   document.getElementById('avg-sale').textContent = avgSale.toFixed(2);
 
-  // Update recent sales table
+  // Update recent sales table — ensure column order matches HTML: Date, Product, Qty, Client, Amount, Payment
   const recentSales = sales.slice(-5).reverse();
   const recentSalesTable = document.getElementById('recent-sales-table');
+  if (!recentSalesTable) return;
   recentSalesTable.innerHTML = '';
 
   if (recentSales.length === 0) {
-    recentSalesTable.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No sales recorded yet</td></tr>';
+    recentSalesTable.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No sales recorded yet</td></tr>';
   } else {
     recentSales.forEach(sale => {
+      const total = ((sale.amount || 0) * (sale.quantity || 1)).toFixed(2);
       const row = `
         <tr>
           <td>${formatDate(sale.date)}</td>
-          <td>${sale.product}</td>
+          <td>${sale.product || ''}</td>
+          <td>${sale.quantity || 1}</td>
           <td>${sale.client || 'N/A'}</td>
-          <td>Rs. ${sale.amount.toFixed(2)}</td>
-          <td><span class="badge bg-primary">${sale.payment}</span></td>
+          <td>Rs. ${total}</td>
+          <td><span class="badge bg-primary">${sale.payment || ''}</span></td>
         </tr>
       `;
       recentSalesTable.innerHTML += row;
@@ -148,14 +245,16 @@ function renderSalesList() {
   }
 
   filteredSales.forEach(sale => {
+    const total = ((sale.amount || 0) * (sale.quantity || 1)).toFixed(2);
     const row = `
       <tr>
         <td>${formatDate(sale.date)}</td>
         <td>${sale.product}</td>
-        <td>Rs. ${sale.amount.toFixed(2)}</td>
+        <td>${sale.quantity || 1}</td>
+        <td>Rs. ${total}</td>
         <td>${sale.client || 'N/A'}</td>
         <td><span class="badge bg-info">${sale.payment}</span></td>
-        <td><span class="badge bg-secondary">${sale.category}</span></td>
+        <td><span class="badge bg-secondary">${sale.category || ''}</span></td>
         <td>
           <button class="btn btn-sm btn-outline-primary me-1" onclick="editSale(${sale.id})" title="Edit">
             <i class="fas fa-edit"></i>
@@ -183,6 +282,8 @@ function editSale(id) {
   document.getElementById('edit-payment').value = sale.payment;
   document.getElementById('edit-category').value = sale.category;
   document.getElementById('edit-notes').value = sale.notes || '';
+  document.getElementById('edit-quantity').value = sale.quantity || 1;
+  document.getElementById('edit-total').value = ((sale.amount || 0) * (sale.quantity || 1)).toFixed(2);
 
   const modal = new bootstrap.Modal(document.getElementById('editSaleModal'));
   modal.show();
@@ -234,27 +335,38 @@ function deleteSale(id) {
 
 // Export to CSV
 document.getElementById('export-btn').addEventListener('click', function() {
-  if (sales.length === 0) {
-    showToast('No sales data to export.', 'error');
-    return;
-  }
-
-  const csvContent = 'Date,Product,Amount,Client,Payment,Category,Notes\n' +
-    sales.map(sale => 
-      `${sale.date},"${sale.product}",${sale.amount},"${sale.client || ''}","${sale.payment}","${sale.category}","${sale.notes || ''}"`
-    ).join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `mojacart-sales-${new Date().toISOString().split('T')[0]}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
+  // Create CSV header
+  let csv = 'Date,Product,Quantity,Amount,Client,Payment,Notes\n';
   
-  showToast('Sales data exported successfully!');
+  // Add each sale as a row
+  sales.forEach(sale => {
+    // Format date properly
+    const formattedDate = formatDate(sale.date);
+    
+    // Create CSV row with proper escaping
+    const row = [
+      formattedDate,
+      sale.product.replace(/,/g, ';'),
+      (sale.quantity || 1),
+      sale.amount,
+      sale.client.replace(/,/g, ';'),
+      sale.payment,
+      sale.notes.replace(/,/g, ';')
+    ].join(',');
+    
+    csv += row + '\n';
+  });
+
+  // Create and trigger download
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `sales_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 });
 
 // Initialize charts
@@ -273,8 +385,10 @@ function initializeCharts() {
 function createMonthlyChart() {
   const monthlyData = {};
   sales.forEach(sale => {
-    const month = sale.date.substring(0, 7); // YYYY-MM
-    monthlyData[month] = (monthlyData[month] || 0) + sale.amount;
+    const month = (sale.date || '').substring(0, 7); // YYYY-MM
+    const value = ((sale.amount || 0) * (sale.quantity || 1));
+    if (!month) return;
+    monthlyData[month] = (monthlyData[month] || 0) + value;
   });
 
   const sortedMonths = Object.keys(monthlyData).sort();
@@ -282,9 +396,7 @@ function createMonthlyChart() {
 
   const ctx = document.getElementById('monthly-chart');
   if (ctx) {
-    if (charts.monthly) {
-      charts.monthly.destroy();
-    }
+    if (charts.monthly) charts.monthly.destroy();
     charts.monthly = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -305,11 +417,7 @@ function createMonthlyChart() {
         scales: {
           y: {
             beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return 'Rs. ' + value.toFixed(0);
-              }
-            }
+            ticks: { callback: v => 'Rs. ' + Number(v).toFixed(0) }
           }
         }
       }
@@ -317,38 +425,33 @@ function createMonthlyChart() {
   }
 }
 
-// Create payment methods chart
+// Create payment methods chart (use revenue per method)
 function createPaymentChart() {
   const paymentData = {};
   sales.forEach(sale => {
-    paymentData[sale.payment] = (paymentData[sale.payment] || 0) + 1;
+    const key = sale.payment || 'Unknown';
+    const value = ((sale.amount || 0) * (sale.quantity || 1));
+    paymentData[key] = (paymentData[key] || 0) + value;
   });
 
   const ctx = document.getElementById('payment-chart');
   if (ctx) {
-    if (charts.payment) {
-      charts.payment.destroy();
-    }
+    if (charts.payment) charts.payment.destroy();
     charts.payment = new Chart(ctx, {
       type: 'doughnut',
       data: {
         labels: Object.keys(paymentData),
         datasets: [{
           data: Object.values(paymentData),
-          backgroundColor: [
-            '#2563eb',
-            '#059669',
-            '#d97706',
-            '#dc2626',
-            '#7c3aed'
-          ]
+          backgroundColor: ['#2563eb','#059669','#d97706','#dc2626','#7c3aed']
         }]
       },
       options: {
         responsive: true,
         plugins: {
-          legend: {
-            position: 'bottom'
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: { label: ctx => `${ctx.label}: Rs. ${ctx.parsed.toFixed(2)}` }
           }
         }
       }
@@ -356,44 +459,33 @@ function createPaymentChart() {
   }
 }
 
-// Create category chart
+// Create category chart (use revenue per category)
 function createCategoryChart() {
   const categoryData = {};
   sales.forEach(sale => {
-    categoryData[sale.category] = (categoryData[sale.category] || 0) + sale.amount;
+    const key = sale.category || 'Uncategorized';
+    const value = ((sale.amount || 0) * (sale.quantity || 1));
+    categoryData[key] = (categoryData[key] || 0) + value;
   });
 
   const ctx = document.getElementById('category-chart');
   if (ctx) {
-    if (charts.category) {
-      charts.category.destroy();
-    }
+    if (charts.category) charts.category.destroy();
     charts.category = new Chart(ctx, {
       type: 'pie',
       data: {
         labels: Object.keys(categoryData),
         datasets: [{
           data: Object.values(categoryData),
-          backgroundColor: [
-            '#2563eb',
-            '#059669',
-            '#d97706',
-            '#dc2626'
-          ]
+          backgroundColor: ['#2563eb','#059669','#d97706','#dc2626','#7c3aed']
         }]
       },
       options: {
         responsive: true,
         plugins: {
-          legend: {
-            position: 'bottom'
-          },
+          legend: { position: 'bottom' },
           tooltip: {
-            callbacks: {
-              label: function(context) {
-                return context.label + ': Rs. ' + context.parsed.toFixed(2);
-              }
-            }
+            callbacks: { label: ctx => `${ctx.label}: Rs. ${ctx.parsed.toFixed(2)}` }
           }
         }
       }
@@ -405,18 +497,19 @@ function createCategoryChart() {
 function createDailyChart() {
   const dailyData = {};
   sales.forEach(sale => {
-    dailyData[sale.date] = (dailyData[sale.date] || 0) + sale.amount;
+    const key = sale.date || '';
+    const value = ((sale.amount || 0) * (sale.quantity || 1));
+    if (!key) return;
+    dailyData[key] = (dailyData[key] || 0) + value;
   });
 
   const sortedDates = Object.keys(dailyData).sort();
   const last30Days = sortedDates.slice(-30);
-  const values = last30Days.map(date => dailyData[date]);
+  const values = last30Days.map(d => dailyData[d]);
 
   const ctx = document.getElementById('daily-chart');
   if (ctx) {
-    if (charts.daily) {
-      charts.daily.destroy();
-    }
+    if (charts.daily) charts.daily.destroy();
     charts.daily = new Chart(ctx, {
       type: 'line',
       data: {
@@ -436,22 +529,22 @@ function createDailyChart() {
       options: {
         responsive: true,
         scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return 'Rs. ' + value.toFixed(0);
-              }
-            }
-          }
+          y: { beginAtZero: true, ticks: { callback: v => 'Rs. ' + Number(v).toFixed(0) } }
         }
       }
     });
   }
 }
 
-// Update all charts
+// Update all charts (destroy existing then recreate)
 function updateCharts() {
+  // destroy any existing charts safely
+  Object.keys(charts).forEach(k => {
+    if (charts[k]) {
+      try { charts[k].destroy(); } catch (e) { /* ignore */ }
+      charts[k] = null;
+    }
+  });
   initializeCharts();
 }
 

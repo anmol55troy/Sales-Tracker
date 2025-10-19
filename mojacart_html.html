@@ -88,6 +88,7 @@
                     <tr>
                       <th>Date</th>
                       <th>Product</th>
+                      <th>Qty</th>
                       <th>Client</th>
                       <th>Amount</th>
                       <th>Payment</th>
@@ -116,6 +117,15 @@
                         <label class="form-label fw-bold">Amount (Rs.) *</label>
                         <input type="number" class="form-control" id="amount" min="0" step="0.01" required>
                       </div>
+                      <div class="col-md-6">
+                        <label class="form-label fw-bold">Quantity *</label>
+                        <input type="number" class="form-control" id="quantity" min="1" step="1" value="1" required>
+                      </div>
+
+                     <div class="col-md-6">
+                       <label class="form-label fw-bold">Total (Rs.)</label>
+                       <input type="number" class="form-control" id="total" readonly value="0.00">
+                     </div>
                       <div class="col-md-6">
                         <label class="form-label fw-bold">Client Name</label>
                         <input type="text" class="form-control" id="client">
@@ -165,6 +175,7 @@
                     <option value="nike anke"></option>
                     <option value="nike half"></option>
                     <option value="trekking"></option>
+                    <option value="emoji"></option>
                   </datalist>
                 </div>
               </div>
@@ -211,6 +222,7 @@
                     <tr>
                       <th>Date</th>
                       <th>Product</th>
+                      <th>Qty</th>
                       <th>Amount (Rs.)</th>
                       <th>Client</th>
                       <th>Payment</th>
@@ -287,6 +299,15 @@
                 <label class="form-label">Date</label>
                 <input type="date" class="form-control" id="edit-date">
               </div>
+              <div class="col-md-6">
+                <label class="form-label">Quantity</label>
+                <input type="number" class="form-control" id="edit-quantity" min="1" step="1" value="1">
+              </div>
+
+             <div class="col-md-6">
+               <label class="form-label">Total (Rs.)</label>
+               <input type="number" class="form-control" id="edit-total" readonly value="0.00">
+             </div>
               <div class="col-md-6">
                 <label class="form-label">Payment Method</label>
                 <select class="form-select" id="edit-payment">

@@ -61,6 +61,22 @@ body {
   background: rgba(37, 99, 235, 0.1);
 }
 
+/* center navigation tabs */
+.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px; /* spacing between buttons */
+  border-bottom: none;
+  padding-left: 0; /* ensure centering in Bootstrap containers */
+}
+.nav-tabs .nav-item {
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .nav-tabs { flex-wrap: wrap; justify-content: center; }
+}
+
 /* Stat Cards */
 .stat-card {
   background: linear-gradient(135deg, #A1C2BD, #708993);
