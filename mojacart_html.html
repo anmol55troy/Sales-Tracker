@@ -109,8 +109,8 @@
                   <form id="sale-form">
                     <div class="row g-3">
                       <div class="col-md-6">
-                        <label class="form-label fw-bold">Product/Service Name *</label>
-                        <input type="text" class="form-control" id="product" required>
+                        <label class="form-label fw-bold">Product Name *</label>
+                        <input type="text" class="form-control" id="product" list="product-list" required>
                       </div>
                       <div class="col-md-6">
                         <label class="form-label fw-bold">Amount (Rs.) *</label>
@@ -154,6 +154,18 @@
                       </div>
                     </div>
                   </form>
+
+                  <!-- Product suggestions -->
+                  <datalist id="product-list">
+                    <option value="Printed socks"></option>
+                    <option value="Cactus jack"></option>
+                    <option value="girly"></option>
+                    <option value="formal"></option>
+                    <option value="nike long"></option>
+                    <option value="nike anke"></option>
+                    <option value="nike half"></option>
+                    <option value="trekking"></option>
+                  </datalist>
                 </div>
               </div>
             </div>
@@ -261,7 +273,7 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Product/Service</label>
-                <input type="text" class="form-control" id="edit-product" required>
+                <input type="text" class="form-control" id="edit-product" list="product-list" required>
               </div>
               <div class="col-md-6">
                 <label class="form-label">Amount (Rs.)</label>
